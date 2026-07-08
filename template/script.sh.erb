@@ -12,7 +12,7 @@ elsif working_dir.file?
 end
 %>
 
-if ! command -v "$HOME/code" > /dev/null 2>&1; then
+if [[ ! -x "$HOME/code" ]]; then
     pushd "$HOME"
 
     vscode_cli_tarball="vscode_cli.tar.gz"
@@ -35,7 +35,7 @@ if ! command -v "$HOME/code" > /dev/null 2>&1; then
         exit 1
     fi
 
-    vscode_cli_expected_checksum="$(grep -Eo '[[:xdigit:]]{64}' "${vscode_cli_checksum_file}" | head -n 1)"
+    vscode_cli_expected_checksum="$(awk 'match($0, /^[[:space:]]*([[:xdigit:]]{64})([[:space:]]+|$)/, m) { print m[1]; exit }' "${vscode_cli_checksum_file}")"
     if [[ -z "${vscode_cli_expected_checksum}" ]]; then
         echo "$(date): ERROR: Could not parse VS Code CLI checksum"
         rm -f "${vscode_cli_tarball}" "${vscode_cli_checksum_file}"
