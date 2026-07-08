@@ -12,6 +12,10 @@ elsif working_dir.file?
 end
 %>
 
+log() {
+    echo "$(date): $*"
+}
+
 if [[ ! -x "$HOME/code" ]]; then
     pushd "$HOME"
 
@@ -20,25 +24,25 @@ if [[ ! -x "$HOME/code" ]]; then
     vscode_cli_download_url='https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-x64'
     vscode_cli_checksum_url='https://code.visualstudio.com/sha?build=stable&os=cli-alpine-x64'
 
-    echo "$(date): Downloading VS Code CLI from ${vscode_cli_download_url}"
+    log "Downloading VS Code CLI from ${vscode_cli_download_url}"
     if ! curl --fail --show-error --location --proto '=https' --tlsv1.2 "${vscode_cli_download_url}" --output "${vscode_cli_tarball}"; then
-        echo "$(date): ERROR: Failed to download VS Code CLI over TLS"
+        log "ERROR: Failed to download VS Code CLI over TLS"
         popd
         exit 1
     fi
 
-    echo "$(date): Downloading VS Code CLI checksum from ${vscode_cli_checksum_url}"
+    log "Downloading VS Code CLI checksum from ${vscode_cli_checksum_url}"
     if ! curl --fail --show-error --location --proto '=https' --tlsv1.2 "${vscode_cli_checksum_url}" --output "${vscode_cli_checksum_file}"; then
-        echo "$(date): ERROR: Failed to download VS Code CLI checksum over TLS"
+        log "ERROR: Failed to download VS Code CLI checksum over TLS"
         rm -f "${vscode_cli_tarball}" "${vscode_cli_checksum_file}"
         popd
         exit 1
     fi
 
-    # Accept checksum lines formatted as "<sha256>" or "<sha256><whitespace><filename>".
+    # Parse "64 hexadecimal characters, optionally followed by whitespace and filename".
     vscode_cli_expected_checksum="$(awk 'match($0, /^[[:space:]]*([[:xdigit:]]{64})([[:space:]]+|$)/, m) { print m[1]; exit }' "${vscode_cli_checksum_file}")"
     if [[ -z "${vscode_cli_expected_checksum}" ]]; then
-        echo "$(date): ERROR: Could not parse VS Code CLI checksum"
+        log "ERROR: Could not parse VS Code CLI checksum"
         rm -f "${vscode_cli_tarball}" "${vscode_cli_checksum_file}"
         popd
         exit 1
@@ -46,7 +50,7 @@ if [[ ! -x "$HOME/code" ]]; then
 
     vscode_cli_actual_checksum="$(sha256sum "${vscode_cli_tarball}" | awk '{print $1}')"
     if [[ "${vscode_cli_actual_checksum}" != "${vscode_cli_expected_checksum}" ]]; then
-        echo "$(date): ERROR: VS Code CLI checksum verification failed"
+        log "ERROR: VS Code CLI checksum verification failed"
         rm -f "${vscode_cli_tarball}" "${vscode_cli_checksum_file}"
         popd
         exit 1
@@ -58,12 +62,12 @@ if [[ ! -x "$HOME/code" ]]; then
 fi
 
 # Print compute node.
-echo "$(date): Running on ${host}:$port"
+log "Running on ${host}:$port"
 
 #
 # Start VSCode.
 #
-echo "$(date): Start code serve-web"
+log "Start code serve-web"
 echo ""
 
 # Remove scheduler environment variables to make code server a login node
