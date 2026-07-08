@@ -35,6 +35,7 @@ if [[ ! -x "$HOME/code" ]]; then
         exit 1
     fi
 
+    # Accept checksum lines formatted as "<sha256>" or "<sha256><whitespace><filename>".
     vscode_cli_expected_checksum="$(awk 'match($0, /^[[:space:]]*([[:xdigit:]]{64})([[:space:]]+|$)/, m) { print m[1]; exit }' "${vscode_cli_checksum_file}")"
     if [[ -z "${vscode_cli_expected_checksum}" ]]; then
         echo "$(date): ERROR: Could not parse VS Code CLI checksum"
