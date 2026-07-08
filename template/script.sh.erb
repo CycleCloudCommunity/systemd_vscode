@@ -13,7 +13,7 @@ end
 %>
 
 log() {
-    echo "$(date): $*"
+    echo "$(date '+%Y-%m-%dT%H:%M:%S%z'): $*"
 }
 
 if [[ ! -x "$HOME/code" ]]; then
@@ -39,7 +39,7 @@ if [[ ! -x "$HOME/code" ]]; then
         exit 1
     fi
 
-    # Parse "64 hexadecimal characters, optionally followed by whitespace and filename".
+    # Parse SHA-256 checksum lines: 64 hexadecimal characters, optionally followed by whitespace and filename.
     vscode_cli_expected_checksum="$(awk 'match($0, /^[[:space:]]*([[:xdigit:]]{64})([[:space:]]+|$)/, m) { print m[1]; exit }' "${vscode_cli_checksum_file}")"
     if [[ -z "${vscode_cli_expected_checksum}" ]]; then
         log "ERROR: Could not parse VS Code CLI checksum"
