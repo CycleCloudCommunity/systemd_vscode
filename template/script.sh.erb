@@ -17,7 +17,10 @@ log() {
 }
 
 if [[ ! -x "$HOME/code" ]]; then
-    pushd "$HOME"
+    if ! pushd "$HOME"; then
+        log "ERROR: Failed to change directory to HOME (${HOME})"
+        exit 1
+    fi
 
     vscode_cli_tarball="vscode_cli.tar.gz"
     vscode_cli_checksum_file="vscode_cli.sha256"
@@ -39,6 +42,13 @@ if [[ ! -x "$HOME/code" ]]; then
         exit 1
     fi
 
+    if [[ ! -s "${vscode_cli_checksum_file}" ]]; then
+        log "ERROR: VS Code CLI checksum file is missing or empty"
+        rm -f "${vscode_cli_tarball}" "${vscode_cli_checksum_file}"
+        popd
+        exit 1
+    fi
+
     # Checksum files are expected to start with a SHA-256 hash (optionally followed by filename columns).
     vscode_cli_expected_checksum="$(awk '{ print tolower($1); exit }' "${vscode_cli_checksum_file}")"
     if [[ ! "${vscode_cli_expected_checksum}" =~ ^[0-9a-f]{64}$ ]]; then
@@ -55,6 +65,12 @@ if [[ ! -x "$HOME/code" ]]; then
         exit 1
     fi
     vscode_cli_actual_checksum="$(awk '{ print tolower($1); exit }' <<< "${vscode_cli_checksum_output}")"
+    if [[ ! "${vscode_cli_actual_checksum}" =~ ^[0-9a-f]{64}$ ]]; then
+        log "ERROR: Computed VS Code CLI checksum is invalid"
+        rm -f "${vscode_cli_tarball}" "${vscode_cli_checksum_file}"
+        popd
+        exit 1
+    fi
 
     if [[ "${vscode_cli_actual_checksum}" != "${vscode_cli_expected_checksum}" ]]; then
         log "ERROR: VS Code CLI checksum verification failed"
