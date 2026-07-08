@@ -12,20 +12,78 @@ elsif working_dir.file?
 end
 %>
 
-if ! which $HOME/code; then
-    pushd $HOME
-    curl -Lk 'https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-x64' --output  vscode_cli.tar.gz
-    tar -xf vscode_cli.tar.gz
+log() {
+    echo "$(date '+%Y-%m-%dT%H:%M:%S%z'): $*"
+}
+
+if [[ ! -x "$HOME/code" ]]; then
+    if ! pushd "$HOME"; then
+        log "ERROR: Failed to change directory to HOME (${HOME})"
+        exit 1
+    fi
+
+    vscode_cli_tarball="vscode_cli.tar.gz"
+    vscode_cli_checksum_file="vscode_cli.sha256"
+    vscode_cli_download_url='https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-x64'
+    vscode_cli_checksum_url='https://code.visualstudio.com/sha?build=stable&os=cli-alpine-x64'
+
+    cleanup_download_artifacts() {
+        rm -f "${vscode_cli_tarball}" "${vscode_cli_checksum_file}"
+    }
+
+    fail_download_setup() {
+        log "ERROR: $1"
+        cleanup_download_artifacts
+        popd > /dev/null || true
+        exit 1
+    }
+
+    log "Downloading VS Code CLI from ${vscode_cli_download_url}"
+    if ! curl --fail --show-error --location --proto '=https' --tlsv1.2 "${vscode_cli_download_url}" --output "${vscode_cli_tarball}"; then
+        fail_download_setup "Failed to download VS Code CLI over TLS"
+    fi
+
+    log "Downloading VS Code CLI checksum from ${vscode_cli_checksum_url}"
+    if ! curl --fail --show-error --location --proto '=https' --tlsv1.2 "${vscode_cli_checksum_url}" --output "${vscode_cli_checksum_file}"; then
+        fail_download_setup "Failed to download VS Code CLI checksum over TLS"
+    fi
+
+    if [[ ! -s "${vscode_cli_checksum_file}" ]]; then
+        fail_download_setup "VS Code CLI checksum file is missing or empty"
+    fi
+
+    # Checksum files are expected to start with a SHA-256 hash (optionally followed by filename columns).
+    vscode_cli_expected_checksum="$(awk '{ print tolower($1); exit }' "${vscode_cli_checksum_file}")"
+    if [[ ! "${vscode_cli_expected_checksum}" =~ ^[0-9a-f]{64}$ ]]; then
+        fail_download_setup "Could not parse a valid SHA-256 checksum for VS Code CLI"
+    fi
+
+    if ! vscode_cli_checksum_output="$(sha256sum "${vscode_cli_tarball}")"; then
+        fail_download_setup "sha256sum failed while computing VS Code CLI checksum"
+    fi
+    vscode_cli_actual_checksum="$(awk '{ print tolower($1); exit }' <<< "${vscode_cli_checksum_output}")"
+    if [[ ! "${vscode_cli_actual_checksum}" =~ ^[0-9a-f]{64}$ ]]; then
+        fail_download_setup "Computed VS Code CLI checksum is invalid"
+    fi
+
+    if [[ "${vscode_cli_actual_checksum}" != "${vscode_cli_expected_checksum}" ]]; then
+        fail_download_setup "VS Code CLI checksum verification failed"
+    fi
+
+    if ! tar -xf "${vscode_cli_tarball}"; then
+        fail_download_setup "Failed to extract VS Code CLI tarball"
+    fi
+    cleanup_download_artifacts
     popd
 fi
 
 # Print compute node.
-echo "$(date): Running on ${host}:$port"
+log "Running on ${host}:$port"
 
 #
 # Start VSCode.
 #
-echo "$(date): Start code serve-web"
+log "Start code serve-web"
 echo ""
 
 # Remove scheduler environment variables to make code server a login node
