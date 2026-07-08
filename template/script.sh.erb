@@ -12,10 +12,47 @@ elsif working_dir.file?
 end
 %>
 
-if ! which $HOME/code; then
-    pushd $HOME
-    curl -Lk 'https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-x64' --output  vscode_cli.tar.gz
-    tar -xf vscode_cli.tar.gz
+if ! command -v "$HOME/code" > /dev/null 2>&1; then
+    pushd "$HOME"
+
+    vscode_cli_tarball="vscode_cli.tar.gz"
+    vscode_cli_checksum_file="vscode_cli.sha256"
+    vscode_cli_download_url='https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-x64'
+    vscode_cli_checksum_url='https://code.visualstudio.com/sha?build=stable&os=cli-alpine-x64'
+
+    echo "$(date): Downloading VS Code CLI from ${vscode_cli_download_url}"
+    if ! curl --fail --show-error --location --proto '=https' --tlsv1.2 "${vscode_cli_download_url}" --output "${vscode_cli_tarball}"; then
+        echo "$(date): ERROR: Failed to download VS Code CLI over TLS"
+        popd
+        exit 1
+    fi
+
+    echo "$(date): Downloading VS Code CLI checksum from ${vscode_cli_checksum_url}"
+    if ! curl --fail --show-error --location --proto '=https' --tlsv1.2 "${vscode_cli_checksum_url}" --output "${vscode_cli_checksum_file}"; then
+        echo "$(date): ERROR: Failed to download VS Code CLI checksum over TLS"
+        rm -f "${vscode_cli_tarball}" "${vscode_cli_checksum_file}"
+        popd
+        exit 1
+    fi
+
+    vscode_cli_expected_checksum="$(grep -Eo '[[:xdigit:]]{64}' "${vscode_cli_checksum_file}" | head -n 1)"
+    if [[ -z "${vscode_cli_expected_checksum}" ]]; then
+        echo "$(date): ERROR: Could not parse VS Code CLI checksum"
+        rm -f "${vscode_cli_tarball}" "${vscode_cli_checksum_file}"
+        popd
+        exit 1
+    fi
+
+    vscode_cli_actual_checksum="$(sha256sum "${vscode_cli_tarball}" | awk '{print $1}')"
+    if [[ "${vscode_cli_actual_checksum}" != "${vscode_cli_expected_checksum}" ]]; then
+        echo "$(date): ERROR: VS Code CLI checksum verification failed"
+        rm -f "${vscode_cli_tarball}" "${vscode_cli_checksum_file}"
+        popd
+        exit 1
+    fi
+
+    tar -xf "${vscode_cli_tarball}"
+    rm -f "${vscode_cli_tarball}" "${vscode_cli_checksum_file}"
     popd
 fi
 

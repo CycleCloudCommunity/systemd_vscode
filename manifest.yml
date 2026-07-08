@@ -6,5 +6,5 @@ role: batch_connect
 description: |
   This app will launch a remote [VS Code] running as a web server. In case of multiple login nodes they will be represented by a list under the "Cluster" list.
 
-  [VS Code]: https://code.visualstudio.com"
+  [VS Code]: https://code.visualstudio.com
 icon: fas://cog
