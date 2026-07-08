@@ -54,7 +54,7 @@ if [[ ! -x "$HOME/code" ]]; then
         popd
         exit 1
     fi
-    vscode_cli_actual_checksum="$(awk '{ print tolower($1) }' <<< "${vscode_cli_checksum_output}")"
+    vscode_cli_actual_checksum="$(awk '{ print tolower($1); exit }' <<< "${vscode_cli_checksum_output}")"
 
     if [[ "${vscode_cli_actual_checksum}" != "${vscode_cli_expected_checksum}" ]]; then
         log "ERROR: VS Code CLI checksum verification failed"
@@ -63,7 +63,12 @@ if [[ ! -x "$HOME/code" ]]; then
         exit 1
     fi
 
-    tar -xf "${vscode_cli_tarball}"
+    if ! tar -xf "${vscode_cli_tarball}"; then
+        log "ERROR: Failed to extract VS Code CLI tarball"
+        rm -f "${vscode_cli_tarball}" "${vscode_cli_checksum_file}"
+        popd
+        exit 1
+    fi
     rm -f "${vscode_cli_tarball}" "${vscode_cli_checksum_file}"
     popd
 fi
